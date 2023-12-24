@@ -13,7 +13,7 @@ player_acceleration = 0.01
 
 # bullet settings
 bullet_velocity = 5
-bullet_size = 2
+bullet_size = 1
 
 # shooting cooldown settings
 shoot_cooldown = 90 # seconds/60

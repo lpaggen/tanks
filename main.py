@@ -55,13 +55,11 @@ class Player(pygame.sprite.Sprite):
         self.gun_rect = self.image_1.get_rect(center = self.gun_hitbox_rect.center)
 
     def is_shooting(self):
-        if self.shooting:
-            self.shoot_cooldown == shoot_cooldown
-            self.shoot_cooldown -= 1 # refreshes 60 times per second
-            self.bullet = Bullet(self.gun_rect.centerx, self.gun_rect.centery)
-            self.bullet.move_bullet()
-            if self.shoot_cooldown == 0:
-                self.shooting = False
+        if self.shooting and self.shoot_cooldown > 0:
+            self.shoot_cooldown -= 1 # until it hits 0
+        if self.shoot_cooldown == 0:
+            self.shoot_cooldown = shoot_cooldown
+            self.shooting = False
 
     def user_input(self):
         keys = pygame.key.get_pressed()
@@ -78,8 +76,13 @@ class Player(pygame.sprite.Sprite):
             if self.velocity < 0:
                 self.velocity += 2 *self.acceleration
 
-        if pygame.mouse.get_pressed()[0] and self.shoot_cooldown == 0: # left click, check if cooldown expired
+        if pygame.mouse.get_pressed()[0] and not self.shooting: # left click, check if cooldown expired
             self.shooting = True # set shooting state to True, used in is_shooting method
+            self.shoot_cooldown = shoot_cooldown
+            self.bullet = Bullet(self.gun_rect.centerx, self.gun_rect.centery, self.gun_angle)
+            bullet_group.add(self.bullet)
+            print(self.shoot_cooldown)
+            self.is_shooting()
 
     def move(self):
         direction_vector = pygame.math.Vector2(self.velocity, 0).rotate(self.rotation_angle) # handles movement of tank
@@ -99,7 +102,7 @@ class Player(pygame.sprite.Sprite):
 
 # bullet class
 class Bullet(pygame.sprite.Sprite):
-    def __init__(self, x, y):
+    def __init__(self, x, y, angle):
         super().__init__()
         self.image = pygame.transform.rotozoom(pygame.image.load("player/bulletsprite/bullet_1.bmp"), 0, bullet_size)
         self.image_base = self.image
@@ -109,17 +112,20 @@ class Bullet(pygame.sprite.Sprite):
         self.hitbox_rect = self.image_base.get_rect(center = self.pos)
         self.rect = self.hitbox_rect.copy()
         self.velocity = bullet_velocity
-        self.angle = math.radians(player.angle)
+        self.angle = math.radians(angle)
 
     def move_bullet(self):
         self.vel_x = self.velocity * math.cos(self.angle)
         self.vel_y = self.velocity * math.sin(self.angle)
         self.pos += pygame.math.Vector2(self.vel_x, self.vel_y)
+        self.rect.center = self.pos
 
-    def bullet_update(self):
+    def update(self):
         self.move_bullet()
 
 player = Player()
+
+bullet_group = pygame.sprite.Group()
 
 # title and icon
 pygame.display.set_caption("Tanks")
@@ -133,12 +139,13 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-    # surface placement test
     screen.blit(background_surface, (0, 0))
     screen.blit(player.image, player.rect)
-    screen.blit(player.image_1, player.gun_rect) # coordinates for gun of tank to spawn
+    screen.blit(player.image_1, player.gun_rect)
+    bullet_group.draw(screen)
     screen.blit(text_surface, text_rect)
     player.update()
+    bullet_group.update()
 
     # debug
     pygame.draw.rect(screen, "red", player.hitbox_rect, width=2)
@@ -147,6 +154,3 @@ while running:
     # update elements
     pygame.display.update()
     clock.tick(fps)
-
-    # rbg background
-    screen.fill((0, 0, 0))
