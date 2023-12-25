@@ -17,7 +17,7 @@ text_surface = font.render("TANKS", False, "Black")
 text_rect = text_surface.get_rect(midbottom = (600, 100))
 
 # background
-background = pygame.image.load("graphics/background.png").convert_alpha()
+background = pygame.image.load("graphics/background.bmp").convert_alpha()
 background_surface = pygame.transform.scale(background, (width, height))
 
 # player class
@@ -79,9 +79,11 @@ class Player(pygame.sprite.Sprite):
         if pygame.mouse.get_pressed()[0] and not self.shooting: # left click, check if cooldown expired
             self.shooting = True # set shooting state to True, used in is_shooting method
             self.shoot_cooldown = shoot_cooldown
-            self.bullet = Bullet(self.gun_rect.centerx, self.gun_rect.centery, self.gun_angle)
+            self.gun_angle_rad = math.radians(self.gun_angle)
+            self.x_offset = (40 * math.cos(self.gun_angle_rad))
+            self.y_offset = (40 * math.sin(-self.gun_angle_rad))
+            self.bullet = Bullet(self.gun_rect.centerx + self.x_offset, self.gun_rect.centery - self.y_offset, self.gun_angle)
             bullet_group.add(self.bullet)
-            print(self.shoot_cooldown)
             self.is_shooting()
 
     def move(self):
@@ -104,7 +106,7 @@ class Player(pygame.sprite.Sprite):
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, x, y, angle):
         super().__init__()
-        self.image = pygame.transform.rotozoom(pygame.image.load("player/bulletsprite/bullet_1.bmp"), 0, bullet_size)
+        self.image = pygame.transform.rotozoom(pygame.image.load("player/bulletsprite/bullet_1.bmp").convert_alpha(), 0, bullet_size)
         self.image_base = self.image
         self.x = x
         self.y = y
@@ -128,8 +130,8 @@ player = Player()
 bullet_group = pygame.sprite.Group()
 
 # title and icon
-pygame.display.set_caption("Tanks")
-icon = pygame.image.load("tank1.png")
+pygame.display.set_caption("tanks -- beta")
+icon = pygame.image.load("tank1.bmp")
 pygame.display.set_icon(icon)
 
 # game loop
