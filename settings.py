@@ -3,17 +3,34 @@ width = 1200
 height = 800
 fps = 60
 
+# tank spawn coords
+coord_list = [(100, 100), (1100, 100), (100, 700), (1100, 700)] # tank spawns
+
+# number of tanks
+number_of_tanks = 4
+
 # player settings
-player_start_x = 100
-player_start_y = 100
 player_size = 1.2
-gun_size = 1.4
+player_gun_size = 1.4
 player_max_speed = 1
 player_acceleration = 0.01
 
 # bullet settings
-bullet_velocity = 5
-bullet_size = 1
+player_bullet_velocity = 5
+player_bullet_size = 1.5
 
 # shooting cooldown settings
-shoot_cooldown = 90 # seconds/60
+player_shoot_cooldown = 90 # seconds/60
+
+# enemy settings
+e_size = 1.2
+e_gun_size = 1.4
+e_max_speed = 1
+e_acceleration = 0.01
+
+# enemy bullet settings
+e_bullet_velocity = 5
+e_bullet_size = 1.5
+
+# e shooting cooldown settings
+e_shoot_cooldown = 90 # seconds/60
