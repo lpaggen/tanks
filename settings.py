@@ -34,3 +34,8 @@ e_bullet_size = 1.5
 
 # e shooting cooldown settings
 e_shoot_cooldown = 90 # seconds/60
+
+# ai specific params (use this to change the way ai behaves / these work as multipliers to calibrate the importance the ai gives each parameter of the game such as distance from others etc)
+dist_mult = 50
+kill_mult = 50
+health_mult = 50

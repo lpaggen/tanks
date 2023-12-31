@@ -37,12 +37,15 @@ pick_color(4)
 # player class (also will incorporate the enemies and their AI at some stage)
 class Player(pygame.sprite.Sprite):
     playerInstances = [] # stores all Player object instances
-    def __init__(self, x, y, ai = True, id = None): # by default a new tank is an ai-controlled entity
+    def __init__(self, x, y, name = str, health = int, kills = 0, ai = bool, idn = int): # class for tanks
         super().__init__()
         self.x = x
         self.y = y
+        self.name = name
+        self.health = health
+        self.kills = kills
         self.ai = ai
-        self.id = id
+        self.id = idn
         if ai: # according to flag set in constructor - see settings.py file
             self.size = e_size
             self.gun_size = e_gun_size
@@ -91,7 +94,7 @@ class Player(pygame.sprite.Sprite):
         else: # implement some form of AI to aim at the player!
             for playerinstance in Player.playerInstances: # check all class instances
                 if playerinstance.id != self.id: # checks if instance is not self
-                    self.aim_coords = player.pos
+                    self.aim_coords = playerinstance.pos
                     self.delta_change_x = (self.aim_coords[0] - self.gun_hitbox_rect.centerx)
                     self.delta_change_y = (self.aim_coords[1] - self.gun_hitbox_rect.centerx)
                     self.gun_angle = math.degrees(math.atan2(self.delta_change_y, self.delta_change_x))
@@ -130,6 +133,16 @@ class Player(pygame.sprite.Sprite):
             self.bullet = Bullet(self.gun_rect.centerx + self.x_offset, self.gun_rect.centery + self.y_offset, self.gun_angle)
             bullet_group.add(self.bullet)
             self.is_shooting()
+            
+
+    # DOES NOT WORK, NEED TO FIX
+    def is_colliding(self):
+        for instance in Player.playerInstances:
+            relative_dist = [math.sqrt((((self.pos[0] - instance.pos[0])**2) + (self.pos[1] - instance.pos[1])**2)) for instance in Player.playerInstances] # distance between tanks
+            for i in relative_dist: # start with 80, see how it behaves later 
+                if i == 80:
+                    self.velocity = 0
+                    print("COLLISION DETECTED")
 
     def move(self):
         direction_vector = pygame.math.Vector2(self.velocity, 0).rotate(self.rotation_angle) # handles movement of tank
@@ -139,6 +152,34 @@ class Player(pygame.sprite.Sprite):
         self.gun_pos += direction_vector
         self.gun_hitbox_rect.center = self.gun_pos
         self.gun_rect.center = self.gun_hitbox_rect.center
+        
+    def ai_incentive(self): # attributes a "score" to determine the best move for ai tanks
+        self.best_move_eval = {}
+        for instance in Player.playerInstances:
+            self.best_move_eval[instance.id] = 0 # 0 score for any n number_of_tanks
+        self.best_move = 0 # score always starts at 0, updated with each condition checked
+        if self.ai: # if ai, will determine which tank to aim at
+            # find closest tank
+            for instance in Player.playerInstances: # i allow for self.pos - self.pos
+                relative_pos = [math.sqrt((((self.pos[0] - instance.pos[0])**2) + (self.pos[1] - instance.pos[1])**2)) for instance in Player.playerInstances] # abs distance between tanks centers
+                relative_pos[relative_pos.index(min(relative_pos))] = 10000 # replaces 0 by large value
+                closest_instance_idx = relative_pos.index(min(relative_pos)) # now finds correct index
+                # find enemy with lowest health points
+                instance_health = [instance.health for instance in Player.playerInstances] # lists health of all tanks
+                instance_health[self.id] = 10000 # set arbitrarily large value to own health # NEED TO DEBUG THIS
+                lowest_instance_health_idx = instance_health.index(min(instance_health))
+                
+                # find tank which killed many other tanks (dangerous tank is the logic)
+                instance_kills = [instance.kills for instance in Player.playerInstances] # lists kills per instance
+                if max(instance_kills) > 0: # checks if any instance has a kill
+                    instance_kills[instance_kills.index(min(instance_kills))] = 0 # replace lowest kill count to 0, prevents from targeting self
+                    max_instance_kills_idx = instance_kills.index(max(instance_kills)) # find id of tank with highest kill count
+                
+                # find if a specific tank holds any powerups (can set a danger score for each)
+                # needs to be worked on
+                
+
+
 
     def update(self):
         self.user_input()
@@ -146,6 +187,8 @@ class Player(pygame.sprite.Sprite):
         self.player_rotate()
         self.gun_rotate()
         self.is_shooting()
+        self.is_colliding()
+        self.ai_incentive()
 
 # bullet class
 class Bullet(pygame.sprite.Sprite):
@@ -171,9 +214,24 @@ class Bullet(pygame.sprite.Sprite):
     def update(self):
         self.move_bullet()
 
-player = Player(100, 100, ai = False, id = 1) # player
+# power up class (to do: speed, dmg, health ...)
+class powerUps(pygame.sprite.Sprite):
+    def __init__(self, x, y, identifier, name, health, points):
+        super().__init__()
+        self.x = x
+        self.y = y
+        self.id = identifier
+        self.name = name
+        self.health = health
+        self.points = points
 
-enemy_test = Player(400, 400, ai = True, id = 2) # ai instance
+    def spawn(self):
+        pass
+        # TO DO : set a random spawn point, or not according to map, and work the collisions out.. (should be as simple as playerinstance.rect - powerupinstance = 0 collide ?)
+
+player = Player(100, 100, health=100, ai = False, idn = 0) # player
+
+enemy_test = Player(400, 400, health=100, ai = True, idn = 1) # ai instance
 
 player_group = pygame.sprite.Group()
 bullet_group = pygame.sprite.Group()
@@ -205,7 +263,6 @@ while running:
     player.update()
     enemy_test.update()
     bullet_group.update()
-    
 
     # debug
     pygame.draw.rect(screen, "red", player.hitbox_rect, width=2)
