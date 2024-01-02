@@ -3,7 +3,7 @@ width = 1200
 height = 800
 fps = 60
 
-# tank spawn coords
+# tank spawn coords - make modular...
 coord_list = [(100, 100), (1100, 100), (100, 700), (1100, 700)] # tank spawns
 
 # number of tanks

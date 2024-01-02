@@ -15,7 +15,7 @@ def pick_color(n):
 
 # create all n tank objects (currently max supported 4, can make modular by increasing coords)
 def init_tanks(number_of_tanks):
-    pick_color(4)
+    pick_color(number_of_tanks)
     tankid = color_list[0] # used for colors, and spawn positions
     color_list.pop(tankid)
     player = Player(coord_list[tankid][0], coord_list[tankid][1], ai = False, id = tankid)
