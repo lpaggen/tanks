@@ -3,6 +3,7 @@ from settings import *
 import math
 from random import shuffle, randint
 from other_functions import * # imports all functions defined outside of main
+import sys
 
 # init game
 pygame.init()
@@ -161,32 +162,41 @@ class Player(pygame.sprite.Sprite):
         self.gun_rect.center = self.gun_hitbox_rect.center
         
     def check_rectangle_visibility(self): # check 2 and 3 corner case (you never see more)
-        for instance in Obstacles.obstaclesInstancesCorners: # list of 4 coords
-            tleft = instance[0]
-            tright = instance[1]
-            bleft = instance[2]
-            bright = instance[3]
+        self.rect_visibility = []
+        self.strictly_above = False
+        self.strictly_below = False
+        self.strictly_left = False
+        self.strictly_right = False
+        for instance in Obstacles.obstaclesInstances: # list of 4 coords
+            tleft = instance.tleft
+            tright = instance.tright
+            bleft = instance.bleft
+            bright = instance.bright
             self.relative_pos = [
                 math.sqrt((((self.pos[0] - tleft[0])**2) + (self.pos[1] - tleft[1])**2)), 
                 math.sqrt((((self.pos[0] - tright[0])**2) + (self.pos[1] - tright[1])**2)), math.sqrt((((self.pos[0] - bleft[0])**2) + (self.pos[1] - bright[1])**2)), math.sqrt((((self.pos[0] - bright[0])**2) + (self.pos[1] - bright[1])**2))
-                ] # abs distance between tanks centers
+                ] # abs distance between tanks centers and obstacle corners
+            print(tleft, tright, bleft, bright)
 
-        for instance in Obstacles.obstaclesInstancesSides: # list of 4 coords
-            top = instance[0]
-            bottom = instance[1]
-            left = instance[2]
-            right = instance[3]
+            top = tleft[1]
+            bottom = bleft[1]
+            left = tleft[0]
+            right = bright[0]
 
             # 2 corners visible case: check if player between right left, top bottom
             # 2 can be true at most, above and right/left etc etc
-            if self.pos[0] > left and self.pos[0] < right and self.pos[1] > top: # between left and right, and above the obstacle
+            if self.pos[1] < top: # between left and right, and above the obstacle
                 self.strictly_above = True # strictly as in i see 2 corners not 3
-            if self.pos[0] > left and self.pos[0] < right and self.pos[1] < bottom: # between left and right, and below the obstacle
+                print("on top")
+            if self.pos[1] > bottom: # between left and right, and below the obstacle
                 self.strictly_below = True
-            if self.pos[1] > top and self.pos[1] < bottom and self.pos[0] < left: # between top and bottom, and left of the obstacle
+                print("below")
+            if self.pos[0] < left: # between top and bottom, and left of the obstacle
                 self.strictly_left = True
-            if self.pos[1] > top and self.pos[1] < bottom and self.pos[0] > right: # between top and bottom, and right of the obstacle
+                print("left")
+            if self.pos[0] > right: # between top and bottom, and right of the obstacle
                 self.strictly_right = True
+                print("right")
 
             # append all corners an instance sees, and make a SET (no dupes)
             if self.strictly_above: # always sees AT LEAST tleft and tright
@@ -201,14 +211,26 @@ class Player(pygame.sprite.Sprite):
             if self.strictly_right:
                 self.rect_visibility.append(tright)
                 self.rect_visibility.append(bright)
-                
-            self.rect_visibility = set(self.rect_visibility)
+
+            self.rect_visibility = sorted(set(self.rect_visibility))
+            print(self.id)
             print(self.rect_visibility) # DEBUG
-                
+            
+    def compute_line_of_sight(self):
+        corners = list(self.rect_visibility)  # Convert set to a list for indexing
+
+        # Ensure there are at least three corners to form triangles
+        if len(corners) >= 3:
+            for i in range(len(corners)):
+                # Draw filled triangles with self.pos as one point and different corner combinations
+                pygame.draw.polygon(screen, (255, 255, 255),
+                                    [(self.pos[0], self.pos[1]), corners[i], corners[(i + 1) % len(corners)]])
 
 
-                
-        
+
+
+            
+
     def ai_incentive(self): # attributes a "score" to determine the best move for ai tanks
         self.best_move_eval = {}
         for instance in Player.playerInstances:
@@ -241,8 +263,11 @@ class Player(pygame.sprite.Sprite):
         self.gun_rotate()
         self.is_shooting()
         self.is_colliding()
-        self.check_rectangle_visibility()
         self.ai_incentive()
+        
+    def raycasting(self):
+        self.check_rectangle_visibility()
+        self.compute_line_of_sight()
 
 # bullet class
 class Bullet(pygame.sprite.Sprite):
@@ -273,14 +298,14 @@ class Obstacles():
     obstaclesInstances = []
     obstaclesInstancesCorners = [] # save 4 corners of any obstacle (all rectangles)
     obstaclesInstancesSides = [] # appends x, y coords of sides of obstacles
-    def __init__(self, x, y, identifier, obstacletype):
+    def __init__(self, x, y, identifier, obstacletype, corners = [], vertices = []):
         super().__init__()
         self.x = x
         self.y = y
         self.id = identifier
         self.type = obstacletype
         self.pos = pygame.math.Vector2(x, y)
-        self.image = pygame.image.load("filepath").convert_alpha()
+        self.image = pygame.transform.rotozoom(pygame.image.load("graphics/obstacles/obstacle.bmp").convert_alpha(), 0, 4)
         self.hitbox_rect = self.image.get_rect(center = self.pos)
         self.tleft = self.hitbox_rect.topleft # gives xy coord of top left corner
         self.tright = self.hitbox_rect.topright
@@ -290,20 +315,19 @@ class Obstacles():
         self.bottom = self.hitbox_rect.bottom
         self.left = self.hitbox_rect.left
         self.right = self.hitbox_rect.right
-        self.corner_coords = [] # list of 4 corner coordinates
-        self.vertice_coords = [] # list of 4 x and y coordinates for sides of each obstacle
-        
+        self.corners = corners # list of 4 corner coordinates
+        self.vertices = vertices # list of 4 x and y coordinates for sides of each obstacle
+
         Obstacles.obstaclesInstances.append(self)
-        self.corner_coords.append(self.tleft)
-        self.corner_coords.append(self.tright)
-        self.corner_coords.append(self.bleft)
-        self.corner_coords.append(self.bright)
-        Obstacles.obstaclesInstancesCorners.extend(self.corner_coords) # append list of corner coords
-        self.vertice_coords.append(self.top)
-        self.vertice_coords.append(self.bottom)
-        self.vertice_coords.append(self.left)
-        self.vertice_coords.append(self.right)
-        Obstacles.obstaclesInstancesSides.extend(self.vertice_coords) # side coords appended
+
+        self.corners.append(self.tleft)
+        self.corners.append(self.tright)
+        self.corners.append(self.bleft)
+        self.corners.append(self.bright)
+        self.vertices.append(self.top)
+        self.vertices.append(self.bottom)
+        self.vertices.append(self.left)
+        self.vertices.append(self.right)
 
 # power up class (to do: speed, dmg, health ...)
 class powerUps(pygame.sprite.Sprite):
@@ -343,7 +367,7 @@ running = True
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            sys.exit()
 
     screen.blit(background_surface, (0, 0))
     player_group.draw(screen)
@@ -353,7 +377,9 @@ while running:
     screen.blit(player.image_1, player.gun_rect)
     bullet_group.draw(screen)
     screen.blit(text_surface, text_rect)
+    screen.blit(obstacle_test.image, obstacle_test.hitbox_rect)
     player.update()
+    player.raycasting()
     enemy_test.update()
     bullet_group.update()
 
