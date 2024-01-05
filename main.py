@@ -82,7 +82,7 @@ class Player(pygame.sprite.Sprite):
         self.strictly_below = False
         self.strictly_left = False
         self.strictly_right = False
-        self.rect_visibility = [] # will append some stuff here later, object specific
+        self.angle_index = 0 # used in ray casting algorithm
         Player.playerInstances.append(self) # appends instance to class list
 
     def player_rotate(self):
@@ -161,70 +161,109 @@ class Player(pygame.sprite.Sprite):
         self.gun_hitbox_rect.center = self.gun_pos
         self.gun_rect.center = self.gun_hitbox_rect.center
         
-    def check_rectangle_visibility(self): # check 2 and 3 corner case (you never see more)
-        self.rect_visibility = []
+    def cast_rays(self): # check 2 and 3 corner case (you never see more)
+        self.visible_angles = [] # append the corner coordinates in the order i need them in
+        self.how_many_visible_angles = []
         self.strictly_above = False
         self.strictly_below = False
         self.strictly_left = False
         self.strictly_right = False
+        self.two_angles = False
+        self.three_angles = False
         for instance in Obstacles.obstaclesInstances: # list of 4 coords
             tleft = instance.tleft
             tright = instance.tright
             bleft = instance.bleft
             bright = instance.bright
-            self.relative_pos = [
+            # calc distance to each corner of obstacle, index is identical to index of coords
+            self.abs_pos = [
                 math.sqrt((((self.pos[0] - tleft[0])**2) + (self.pos[1] - tleft[1])**2)), 
-                math.sqrt((((self.pos[0] - tright[0])**2) + (self.pos[1] - tright[1])**2)), math.sqrt((((self.pos[0] - bleft[0])**2) + (self.pos[1] - bright[1])**2)), math.sqrt((((self.pos[0] - bright[0])**2) + (self.pos[1] - bright[1])**2))
+                math.sqrt((((self.pos[0] - bleft[0])**2) + (self.pos[1] - bright[1])**2)),
+                math.sqrt((((self.pos[0] - tright[0])**2) + (self.pos[1] - tright[1])**2)),
+                math.sqrt((((self.pos[0] - bright[0])**2) + (self.pos[1] - bright[1])**2))
                 ] # abs distance between tanks centers and obstacle corners
-            print(tleft, tright, bleft, bright)
 
             top = tleft[1]
             bottom = bleft[1]
             left = tleft[0]
             right = bright[0]
 
+            # calculate the x and y offset between player and corners (need for trigonometry)
+            offset_x_left = abs(self.pos[0] - left)
+            offset_x_right = abs(self.pos[0] - right)
+            offset_y_top = abs(self.pos[1] - top)
+            offset_y_low = abs(self.pos[1] - bottom)
+
+            # calculate the angles between player pos and all corners (radians for later use)
+            self.angles_to_corners = [
+            math.atan(offset_y_top / offset_x_left),
+            math.atan(offset_y_top/ offset_x_right),
+            math.atan(offset_y_low / offset_x_left),
+            math.atan(offset_y_low / offset_x_right)
+            ]
+
+            self.angles_to_corners_degrees = [math.degrees(angle) for angle in self.angles_to_corners]
+
             # 2 corners visible case: check if player between right left, top bottom
             # 2 can be true at most, above and right/left etc etc
             if self.pos[1] < top: # between left and right, and above the obstacle
                 self.strictly_above = True # strictly as in i see 2 corners not 3
+                self.how_many_visible_angles.append(tleft)
+                self.how_many_visible_angles.append(tright)
+                pygame.draw.polygon(screen, "red", [self.pos, tleft, tright])
                 print("on top")
             if self.pos[1] > bottom: # between left and right, and below the obstacle
                 self.strictly_below = True
+                self.how_many_visible_angles.append(bleft)
+                self.how_many_visible_angles.append(bright)
+                pygame.draw.polygon(screen, "red", [self.pos, bleft, bright])
                 print("below")
             if self.pos[0] < left: # between top and bottom, and left of the obstacle
                 self.strictly_left = True
+                self.how_many_visible_angles.append(tleft)
+                self.how_many_visible_angles.append(bleft)
+                pygame.draw.polygon(screen, "red", [self.pos, tleft, bleft])
                 print("left")
             if self.pos[0] > right: # between top and bottom, and right of the obstacle
                 self.strictly_right = True
+                self.how_many_visible_angles.append(tright)
+                self.how_many_visible_angles.append(bright)
+                pygame.draw.polygon(screen, "red", [self.pos, tright, bright])
                 print("right")
+                
+        self.how_many_visible_angles = set(self.how_many_visible_angles)
 
-            # append all corners an instance sees, and make a SET (no dupes)
-            if self.strictly_above: # always sees AT LEAST tleft and tright
-                self.rect_visibility.append(tleft)
-                self.rect_visibility.append(tright)
-            if self.strictly_below:
-                self.rect_visibility.append(bleft)
-                self.rect_visibility.append(bright)
-            if self.strictly_left:
-                self.rect_visibility.append(tleft)
-                self.rect_visibility.append(bleft)
-            if self.strictly_right:
-                self.rect_visibility.append(tright)
-                self.rect_visibility.append(bright)
+            # find coordinates of corner points based on the distance and angle from self
+            # --> yes we already know the coordinates but this will allow the ray casting
+            # algorithm to not make any mistakes and be as precise at it must be
+            # if len(self.how_many_visible_angles) == 2:
+            #     self.two_angles = True
+            #     self.angle_index = 2 # 2 angles are visible
+            #     print("2 angles are visible")
+            # if len(self.how_many_visible_angles) == 3:
+            #     self.three_angles = True
+            #     self.angle_index = 3 # 3 angles are visible
+            #     print("3 angles are visible")
+            # for i, distance in enumerate(sorted(self.abs_pos[:self.angle_index])):
+            #     angle_rad = self.angles_to_corners[i] # problematic code
+            #     corner_x = self.pos[0] + distance * math.cos(angle_rad)
+            #     corner_y = self.pos[1] + distance * math.sin(angle_rad)
+            #     self.visible_angles.append((corner_x, corner_y))
+            # # TO DO: FIX THE CODE ABOVE. problem: angle_rad not always correct angle!
+            # print(self.how_many_visible_angles)
+            # print(self.visible_angles)
+            # print(self.angles_to_corners_degrees)
 
-            self.rect_visibility = sorted(set(self.rect_visibility))
-            print(self.id)
-            print(self.rect_visibility) # DEBUG
-            
-    def compute_line_of_sight(self):
-        corners = list(self.rect_visibility)  # Convert set to a list for indexing
 
-        # Ensure there are at least three corners to form triangles
-        if len(corners) >= 3:
-            for i in range(len(corners)):
-                # Draw filled triangles with self.pos as one point and different corner combinations
-                pygame.draw.polygon(screen, (255, 255, 255),
-                                    [(self.pos[0], self.pos[1]), corners[i], corners[(i + 1) % len(corners)]])
+    def draw_line_of_sight(self):
+        self.visible_angles = sorted(self.visible_angles)
+        if self.two_angles:
+            pygame.draw.polygon(screen, "red", [self.pos, self.visible_angles[0], self.visible_angles[1]])
+        if self.three_angles:
+            pygame.draw.polygon(screen, "red", [self.pos, self.visible_angles[0], self.visible_angles[2]])
+            pygame.draw.polygon(screen, "red", [self.pos, self.visible_angles[0], self.visible_angles[1]])
+        
+        
 
 
 
@@ -266,8 +305,8 @@ class Player(pygame.sprite.Sprite):
         self.ai_incentive()
         
     def raycasting(self):
-        self.check_rectangle_visibility()
-        self.compute_line_of_sight()
+        self.cast_rays()
+        self.draw_line_of_sight()
 
 # bullet class
 class Bullet(pygame.sprite.Sprite):
@@ -349,6 +388,7 @@ player = Player(100, 100, health=100, ai = False, idn = 0) # player
 enemy_test = Player(400, 400, health=100, ai = True, idn = 1) # ai instance
 
 obstacle_test = Obstacles(600, 600, 0, 1) # obstacle test
+obstacle_test_2 = Obstacles(800, 200, 0, 1)
 
 player_group = pygame.sprite.Group()
 bullet_group = pygame.sprite.Group()
@@ -378,6 +418,7 @@ while running:
     bullet_group.draw(screen)
     screen.blit(text_surface, text_rect)
     screen.blit(obstacle_test.image, obstacle_test.hitbox_rect)
+    screen.blit(obstacle_test_2.image, obstacle_test_2.hitbox_rect)
     player.update()
     player.raycasting()
     enemy_test.update()
