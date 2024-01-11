@@ -18,6 +18,7 @@ player_acceleration = 0.01
 # bullet settings
 player_bullet_velocity = 5
 player_bullet_size = 1.5
+player_bullet_dmg = 25
 
 # shooting cooldown settings
 player_shoot_cooldown = 90 # seconds/60
@@ -31,6 +32,7 @@ e_acceleration = 0.01
 # enemy bullet settings
 e_bullet_velocity = 5
 e_bullet_size = 1.5
+e_bullet_dmg = 25
 
 # e shooting cooldown settings
 e_shoot_cooldown = 90 # seconds/60
@@ -39,3 +41,6 @@ e_shoot_cooldown = 90 # seconds/60
 dist_mult = 50
 kill_mult = 50
 health_mult = 50
+
+# collision behavior
+recoil_scalar = 0.5
