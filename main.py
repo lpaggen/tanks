@@ -172,6 +172,8 @@ class Player(pygame.sprite.Sprite):
         for instance in Obstacles.obstaclesInstances: # obstacles objects
             self.closest_angles_coords = {}
             self.how_many_visible_angles = {}
+            self.intersections = {} # save intersection coords from line_intersect
+            self.screen_corner_rays_intersect = {}
             self.strictly_above = False
             self.strictly_below = False
             self.strictly_left = False
@@ -207,24 +209,29 @@ class Player(pygame.sprite.Sprite):
             }
 
             # determine all start and end points of rays the engine is to draw
-            ray_tleft = ((self.pos[0], self.pos[1]), (tleft[0], tleft[1])) # self to tleft
-            ray_tright = ((self.pos[0], self.pos[1]), (tright[0], tright[1])) # self to tright
-            vertice_top = (tleft, tright) # top side of obstacle rectangle
-            ray_bleft = ((self.pos[0], self.pos[1]), (bleft[0], bleft[1])) # self to tleft
-            ray_bright = ((self.pos[0], self.pos[1]), (bright[0], bright[1])) # self to tright
-            vertice_bottom = (bleft, bright) # top side of obstacle rectangle
-            ray_tleft = ((self.pos[0], self.pos[1]), (tleft[0], tleft[1])) # self to tleft
-            ray_bleft = ((self.pos[0], self.pos[1]), (bleft[0], bleft[1])) # self to tright
-            vertice_left = (tleft, bleft) # top side of obstacle rectangle
-            ray_tright = ((self.pos[0], self.pos[1]), (tright[0], tright[1])) # self to tleft
-            ray_bright = ((self.pos[0], self.pos[1]), (bright[0], bright[1])) # self to tright
-            vertice_right = (tright, bright) # top side of obstacle rectangle
 
+            # ray_tleft = ((self.pos[0], self.pos[1]), (tleft[0], tleft[1])) # self to tleft
+            # ray_tright = ((self.pos[0], self.pos[1]), (tright[0], tright[1])) # self to tright
+            # ray_bleft = ((self.pos[0], self.pos[1]), (bleft[0], bleft[1])) # self to tleft
+            # ray_bright = ((self.pos[0], self.pos[1]), (bright[0], bright[1])) # self to tright
+
+            # these will be used to compute intersections between rays and other objects
+            vertice_top = (tleft, tright) # top side of obstacle rectangle
+            vertice_bottom = (bleft, bright) # bottom side of obstacle rectangle
+            vertice_left = (tleft, bleft) # left side of obstacle rectangle
+            vertice_right = (tright, bright) # right side of obstacle rectangle
+            screen_top = ((0, 0), (width, 0))
+            screen_bottom = ((0, height), (width, height))
+            screen_left = ((0, 0), (0, height))
+            screen_right = ((width, 0), (width, height))
+
+            obstacle_vertices = [vertice_top, vertice_right, vertice_bottom, vertice_left]
+            screen_segments = [screen_top, screen_bottom, screen_left, screen_right]
 
             # 2 corners visible case: check if player between right left, top bottom
             # 2 can be true at most, above and right/left etc etc
             # !!! order -> 0, 1, 2, 3 = tleft, tright, bleft, bright
-            if self.pos[1] <= top - 2: # between left and right, and above the obstacle
+            if self.pos[1] <= top: # above the obstacle
                 self.strictly_above = True # strictly as in i see 2 corners not 3
                 self.how_many_visible_angles[0] = tleft
                 self.how_many_visible_angles[1] = tright
@@ -232,7 +239,7 @@ class Player(pygame.sprite.Sprite):
                     self.pos.y -= 1
                     self.gun.gun_pos.y -= 1
                 # pygame.draw.polygon(screen, "red", [self.pos, tleft, tright])
-            if self.pos[1] >= bottom + 2: # between left and right, and below the obstacle
+            if self.pos[1] >= bottom: # below the obstacle
                 self.strictly_below = True
                 self.how_many_visible_angles[2] = bleft
                 self.how_many_visible_angles[3] = bright
@@ -240,7 +247,7 @@ class Player(pygame.sprite.Sprite):
                     self.pos.y += 1
                     self.gun.gun_pos.y += 1
                 # pygame.draw.polygon(screen, "red", [self.pos, bleft, bright])
-            if self.pos[0] <= left + 2: # between top and bottom, and left of the obstacle
+            if self.pos[0] <= left: # left of the obstacle
                 self.strictly_left = True
                 self.how_many_visible_angles[0] = tleft
                 self.how_many_visible_angles[2] = bleft
@@ -248,7 +255,7 @@ class Player(pygame.sprite.Sprite):
                     self.pos.x -= 1
                     self.gun.gun_pos.x -= 1
                 # pygame.draw.polygon(screen, "red", [self.pos, tleft, bleft])
-            if self.pos[0] >= right - 2: # between top and bottom, and right of the obstacle
+            if self.pos[0] >= right: # right of the obstacle
                 self.strictly_right = True
                 self.how_many_visible_angles[1] = tright
                 self.how_many_visible_angles[3] = bright
@@ -270,25 +277,84 @@ class Player(pygame.sprite.Sprite):
             self.ag1 = self.angles_to_corners[self.cl1] # .. 2nd closest ..
             self.ag2 = self.angles_to_corners[self.cl2]
 
+            # intersection between line(p1, p2) and line(p3, p4)
+            # https://gist.github.com/kylemcdonald/6132fc1c29fd3767691442ba4bc84018
+            def intersect(line1, line2):
+                x1, y1 = line1[0][0], line1[0][1]
+                x2, y2 = line1[1][0], line1[1][1]
+                x3, y3 = line2[0][0], line2[0][1]
+                x4, y4 = line2[1][0], line2[1][1]
+                denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
+                if denom == 0: # parallel
+                    return False
+                ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom
+                if ua < 0 or ua > 1: # out of range
+                    return False
+                ub = ((x2 - x1) * (y1-y3) - (y2 - y1) * (x1 - x3)) / denom
+                if ub < 0 or ub > 1: # out of range
+                    return False
+                x = x1 + ua * (x2 - x1)
+                y = y1 + ua * (y2 - y1)
+                return (x, y)
+
+            # get endpoints of lines from self to corners of the screen
+            self.tleft_corner_line = (tuple(self.pos), (0, 0))
+            self.tright_corner_line = ((self.pos[0], self.pos[1]), (width, 0))
+            self.bleft_corner_line = ((self.pos[0], self.pos[1]), (0, height))
+            self.bright_corner_line = ((self.pos[0], self.pos[1]), (width, height))
+
+            corner_rays = [self.tleft_corner_line, self.tright_corner_line, self.bleft_corner_line, self.bright_corner_line]
+
+            pygame.draw.line(screen, "green", self.pos, (0, 0), 2)
+            pygame.draw.line(screen, "white", self.pos, (width, 0), 2)
+            pygame.draw.line(screen, "white", self.pos, (0, height), 2)
+            pygame.draw.line(screen, "white", self.pos, (width, height), 2)
+
+            # compute intersection (if any) between corners and self rays
+            # works fine, but need to absolutely change the data structure i use here -> (not optimal)
+            self.dist_intersect = []
+            self.intersections = []
+            for ray in corner_rays:
+                for vertice in obstacle_vertices: # 1 ray, check 4 vertices (at most 2 non False)
+                    self.intersect_coord = intersect(ray, vertice) # corner rays and vertices
+                    self.intersections.append(self.intersect_coord) # appends both x, y or False
+                    if self.intersect_coord is not False:
+                        self.dist_intersect.append((((self.pos[0] - self.intersect_coord[0])**2 + self.pos[1] - self.intersect_coord[1])**2)**0.5)
+                    else:
+                        self.dist_intersect.append(False)
+                    print(self.dist_intersect)
+                    print(self.intersections)
+
+                    # debug intersection coordinates to check if result is correct
+                    # -> result seems to be correct ?
+                    debuglines = [i for i in self.intersections if i is not False]
+                    for i in debuglines:
+                        pygame.draw.circle(screen, "green", i, 2, 3)
+
             # draw debugging triangle to visualize line of sight
             self.true_flags = sum([self.strictly_above, self.strictly_below, self.strictly_left, self.strictly_right])
-            if self.true_flags == 1: # case where 2 sides of an obstacle are visible
-                self.corner_x_0 = self.pos[0] + self.abs_pos[self.cl0] * math.cos(self.ag0)
-                self.corner_y_0 = self.pos[1] + self.abs_pos[self.cl0] * math.sin(self.ag0)
-                self.corner_x_1 = self.pos[0] + self.abs_pos[self.cl1] * math.cos(self.ag1)
-                self.corner_y_1 = self.pos[1] + self.abs_pos[self.cl1] * math.sin(self.ag1)
+            if self.true_flags == 1: # case where 1 side of an obstacle are visible
+                self.corner_x_0 = self.pos[0] + 20*self.abs_pos[self.cl0] * math.cos(self.ag0)
+                self.corner_y_0 = self.pos[1] + 20*self.abs_pos[self.cl0] * math.sin(self.ag0)
+                self.corner_x_1 = self.pos[0] + 20*self.abs_pos[self.cl1] * math.cos(self.ag1)
+                self.corner_y_1 = self.pos[1] + 20*self.abs_pos[self.cl1] * math.sin(self.ag1)
                 self.closest_angles_coords[0] = (self.corner_x_0, self.corner_y_0)
                 self.closest_angles_coords[1] = (self.corner_x_1, self.corner_y_1)
                 # draw the rays to the corners calculated above
                 pygame.draw.line(screen, "red", self.pos, self.closest_angles_coords[0], 2)
-                pygame.draw.line(screen, "red", self.pos, self.closest_angles_coords[1], 2)
-            if self.true_flags == 2: # case where 3 sides of an obstacle are visible
+                pygame.draw.line(screen, "blue", self.pos, self.closest_angles_coords[1], 2)
+                # turn rays into line segments [a, b] to check intersections
+                self.ray0 = (self.pos, self.closest_angles_coords[0])
+                self.ray1 = (self.pos, self.closest_angles_coords[1])
+                # compute intersections - rays and obstacles (before screen borders!)
+
+            if self.true_flags == 2: # case where 2 sides of an obstacle are visible
                 self.corner_x_0 = self.pos[0] + self.abs_pos[self.cl0] * math.cos(self.ag0)
                 self.corner_y_0 = self.pos[1] + self.abs_pos[self.cl0] * math.sin(self.ag0)
-                self.corner_x_1 = self.pos[0] + self.abs_pos[self.cl1] * math.cos(self.ag1)
-                self.corner_y_1 = self.pos[1] + self.abs_pos[self.cl1] * math.sin(self.ag1)
-                self.corner_x_2 = self.pos[0] + self.abs_pos[self.cl2] * math.cos(self.ag2)
-                self.corner_y_2 = self.pos[1] + self.abs_pos[self.cl2] * math.sin(self.ag2)
+                self.corner_x_1 = self.pos[0] + 20*self.abs_pos[self.cl1] * math.cos(self.ag1)
+                self.corner_y_1 = self.pos[1] + 20*self.abs_pos[self.cl1] * math.sin(self.ag1)
+                self.corner_x_2 = self.pos[0] + 20*self.abs_pos[self.cl2] * math.cos(self.ag2)
+                self.corner_y_2 = self.pos[1] + 20*self.abs_pos[self.cl2] * math.sin(self.ag2)
                 self.closest_angles_coords[0] = (self.corner_x_0, self.corner_y_0)
                 self.closest_angles_coords[1] = (self.corner_x_1, self.corner_y_1)
                 self.closest_angles_coords[2] = (self.corner_x_2, self.corner_y_2)
@@ -296,12 +362,6 @@ class Player(pygame.sprite.Sprite):
                 pygame.draw.line(screen, "red", self.pos, self.closest_angles_coords[0], 2)
                 pygame.draw.line(screen, "red", self.pos, self.closest_angles_coords[1], 2)
                 pygame.draw.line(screen, "red", self.pos, self.closest_angles_coords[2], 2)
-
-            # get endpoints of lines from self to corners of the screen
-            tleft_corner_line = (self.pos, (0, 0))
-            tright_corner_line = ((self.pos[0], self.pos[1]), (width, 0))
-            bleft_corner_line = ((self.pos[0], self.pos[1]), (0, height))
-            bright_corner_line = ((self.pos[0], self.pos[1]), (width, height))
 
             # debug
             # print("id", instance.id)
