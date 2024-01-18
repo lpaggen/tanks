@@ -305,31 +305,32 @@ class Player(pygame.sprite.Sprite):
 
             corner_rays = [self.tleft_corner_line, self.tright_corner_line, self.bleft_corner_line, self.bright_corner_line]
 
-            pygame.draw.line(screen, "green", self.pos, (0, 0), 2)
+            pygame.draw.line(screen, "white", self.pos, (0, 0), 2)
             pygame.draw.line(screen, "white", self.pos, (width, 0), 2)
             pygame.draw.line(screen, "white", self.pos, (0, height), 2)
             pygame.draw.line(screen, "white", self.pos, (width, height), 2)
 
             # compute intersection (if any) between corners and self rays
             # works fine, but need to absolutely change the data structure i use here -> (not optimal)
+            # TO DO -> REWRITE THIS
             self.dist_intersect = []
             self.intersections = []
             for ray in corner_rays:
                 for vertice in obstacle_vertices: # 1 ray, check 4 vertices (at most 2 non False)
                     self.intersect_coord = intersect(ray, vertice) # corner rays and vertices
                     self.intersections.append(self.intersect_coord) # appends both x, y or False
-                    if self.intersect_coord is not False:
+                    if self.intersect_coord is not False: # might as well use math.dist ...
                         self.dist_intersect.append((((self.pos[0] - self.intersect_coord[0])**2 + self.pos[1] - self.intersect_coord[1])**2)**0.5)
                     else:
                         self.dist_intersect.append(False)
-                    print(self.dist_intersect)
-                    print(self.intersections)
-
-                    # debug intersection coordinates to check if result is correct
-                    # -> result seems to be correct ?
-                    debuglines = [i for i in self.intersections if i is not False]
-                    for i in debuglines:
-                        pygame.draw.circle(screen, "green", i, 2, 3)
+                # debug intersection coordinates to check if result is correct
+                # -> result seems to be correct ?
+                self.intersections = [i for i in self.intersections if i is not False]
+                self.dist_intersect = [i for i in self.dist_intersect if i is not False]
+                if len(self.dist_intersect) > 0:
+                    self.min_dist_to_intersect = self.dist_intersect.index(min(self.dist_intersect))
+                    self.first_intersect = self.intersections[self.min_dist_to_intersect]
+                    pygame.draw.circle(screen, "green", self.first_intersect, 6, 3)
 
             # draw debugging triangle to visualize line of sight
             self.true_flags = sum([self.strictly_above, self.strictly_below, self.strictly_left, self.strictly_right])
