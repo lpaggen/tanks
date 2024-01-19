@@ -142,8 +142,8 @@ class Player(pygame.sprite.Sprite):
             self.shooting = True # set shooting state to True, used in is_shooting method
             self.shoot_cooldown = player_shoot_cooldown # set to whatever, see settings
             self.gun_angle_rad = math.radians(self.gun_angle)
-            self.x_offset = (40 * math.cos(self.gun_angle_rad)) # ~ gun length (40)
-            self.y_offset = (40 * math.sin(self.gun_angle_rad))
+            self.x_offset = (50 * math.cos(self.gun_angle_rad)) # ~ gun length (40) + tolerance
+            self.y_offset = (50 * math.sin(self.gun_angle_rad))
             self.bullet = Bullet(self.gun.rect.centerx + self.x_offset, self.gun.rect.centery + self.y_offset, self.gun_angle)
             bullet_group.add(self.bullet)
             self.is_shooting()
@@ -167,6 +167,20 @@ class Player(pygame.sprite.Sprite):
         # random movement for an ai
         if self.ai:
             pass
+        
+    def drive_into_border(self):
+        if self.pos[1] < -30: # cross top of screen
+            self.pos = (self.pos[0], height + 20)
+            self.gun.gun_pos = self.pos
+        if self.pos[1] > height + 30: # cross bottom of screen
+            self.pos = (self.pos[0], -30)
+            self.gun.gun_pos = self.pos
+        if self.pos[0] < -30: # cross left of screen
+            self.pos = (width + 30, self.pos[1])
+            self.gun.gun_pos = self.pos
+        if self.pos[0] > width + 30: # cross left of screen
+            self.pos = (-30, self.pos[1])
+            self.gun.gun_pos = self.pos
 
     def cast_rays(self): # check 2 and 3 corner case (you never see more)
         for instance in Obstacles.obstaclesInstances: # obstacles objects
@@ -216,21 +230,18 @@ class Player(pygame.sprite.Sprite):
             # ray_bright = ((self.pos[0], self.pos[1]), (bright[0], bright[1])) # self to tright
 
             # these will be used to compute intersections between rays and other objects
-            vertice_top = (tleft, tright) # top side of obstacle rectangle
-            vertice_bottom = (bleft, bright) # bottom side of obstacle rectangle
-            vertice_left = (tleft, bleft) # left side of obstacle rectangle
-            vertice_right = (tright, bright) # right side of obstacle rectangle
             screen_top = ((0, 0), (width, 0))
             screen_bottom = ((0, height), (width, height))
             screen_left = ((0, 0), (0, height))
             screen_right = ((width, 0), (width, height))
 
-            obstacle_vertices = [vertice_top, vertice_right, vertice_bottom, vertice_left]
+            obstacle_vertices = [instance.v_top, instance.v_right, instance.v_bottom, instance.v_left]
             screen_segments = [screen_top, screen_bottom, screen_left, screen_right]
 
             # 2 corners visible case: check if player between right left, top bottom
             # 2 can be true at most, above and right/left etc etc
             # !!! order -> 0, 1, 2, 3 = tleft, tright, bleft, bright
+            # handles collisions too
             if self.pos[1] <= top: # above the obstacle
                 self.strictly_above = True # strictly as in i see 2 corners not 3
                 self.how_many_visible_angles[0] = tleft
@@ -315,8 +326,8 @@ class Player(pygame.sprite.Sprite):
             # TO DO -> REWRITE THIS
             self.dist_intersect = []
             self.intersections = []
-            for ray in corner_rays:
-                for vertice in obstacle_vertices: # 1 ray, check 4 vertices (at most 2 non False)
+            for vertice in obstacle_vertices:
+                for ray in corner_rays:
                     self.intersect_coord = intersect(ray, vertice) # corner rays and vertices
                     self.intersections.append(self.intersect_coord) # appends both x, y or False
                     if self.intersect_coord is not False: # might as well use math.dist ...
@@ -325,12 +336,12 @@ class Player(pygame.sprite.Sprite):
                         self.dist_intersect.append(False)
                 # debug intersection coordinates to check if result is correct
                 # -> result seems to be correct ?
-                self.intersections = [i for i in self.intersections if i is not False]
-                self.dist_intersect = [i for i in self.dist_intersect if i is not False]
-                if len(self.dist_intersect) > 0:
-                    self.min_dist_to_intersect = self.dist_intersect.index(min(self.dist_intersect))
-                    self.first_intersect = self.intersections[self.min_dist_to_intersect]
-                    pygame.draw.circle(screen, "green", self.first_intersect, 6, 3)
+                    self.intersections = [i for i in self.intersections if i is not False]
+                    self.dist_intersect = [i for i in self.dist_intersect if i is not False]
+            if len(self.dist_intersect) > 0:
+                self.min_dist_to_intersect = self.dist_intersect.index(min(self.dist_intersect))
+                self.first_intersect = self.intersections[self.min_dist_to_intersect]
+                pygame.draw.circle(screen, "green", self.first_intersect, 6, 3)
 
             # draw debugging triangle to visualize line of sight
             self.true_flags = sum([self.strictly_above, self.strictly_below, self.strictly_left, self.strictly_right])
@@ -416,6 +427,7 @@ class Player(pygame.sprite.Sprite):
         self.is_shooting()
         self.ai_incentive()
         self.is_killed()
+        self.drive_into_border()
         self.raycasting()
 
     def raycasting(self):
@@ -465,9 +477,9 @@ class Bullet(pygame.sprite.Sprite): # should update to differentiate between pla
 # obstacles class
 class Obstacles():
     obstaclesInstances = []
-    obstaclesInstancesCorners = [] # save 4 corners of any obstacle (all rectangles)
-    obstaclesInstancesSides = [] # appends x, y coords of sides of obstacles
-    def __init__(self, x, y, identifier, obstacletype, corners = [], vertices = []):
+    obstaclesInstancesCorners = [] # save 4 corners of any obstacle (all rectangles) -> UNUSED ATM
+    obstaclesInstancesVertices = [] # appends x, y coords of sides of obstacles
+    def __init__(self, x, y, identifier, obstacletype):
         super().__init__()
         self.x = x
         self.y = y
@@ -484,10 +496,17 @@ class Obstacles():
         self.bottom = self.hitbox_rect.bottom
         self.left = self.hitbox_rect.left
         self.right = self.hitbox_rect.right
-        self.corners = corners # list of 4 corner coordinates
-        self.vertices = vertices # list of 4 x and y coordinates for sides of each obstacle
+        self.v_top = (self.tleft, self.tright) # vertice top, etc (line segments)
+        self.v_right = (self.tright, self.bright)
+        self.v_bottom = (self.bleft, self.bright)
+        self.v_left = (self.bleft, self.tleft)
 
         Obstacles.obstaclesInstances.append(self)
+
+        Obstacles.obstaclesInstancesVertices.append(self.v_top) # vertice top
+        Obstacles.obstaclesInstancesVertices.append(self.v_right) # right ..
+        Obstacles.obstaclesInstancesVertices.append(self.v_bottom)
+        Obstacles.obstaclesInstancesVertices.append(self.v_left)
 
 # power up class (to do: speed, dmg, health ...)
 class powerUps(pygame.sprite.Sprite):
@@ -509,7 +528,7 @@ player = Player(100, 100, health=100, ai = False, idn = 0) # player
 # enemy_test = Player(400, 400, health=100, ai = True, idn = 1) # ai instance
 
 obstacle_test = Obstacles(600, 600, 0, 1) # obstacle test
-obstacle_test_2 = Obstacles(800, 200, 1, 1)
+obstacle_test_2 = Obstacles(600, 475, 1, 1)
 
 player_group = pygame.sprite.Group()
 gun_group = pygame.sprite.Group()
