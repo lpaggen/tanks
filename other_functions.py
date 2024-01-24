@@ -1,6 +1,4 @@
 from random import randint, shuffle, randrange
-from settings import *
-import main
 
 # pick color function
 color_list = [] # list of n different integers, serves to find different bmp for colors
@@ -13,53 +11,40 @@ def pick_color(n):
         if choice not in color_list:
             color_list.append(choice)
 
-# create all n tank objects (currently max supported 4, can make modular by increasing coords)
-def init_tanks(number_of_tanks):
-    pick_color(number_of_tanks)
-    tankid = color_list[0] # used for colors, and spawn positions
-    color_list.pop(tankid)
-    player = Player(coord_list[tankid][0], coord_list[tankid][1], ai = False, id = tankid)
-    for i in range(1, number_of_tanks): # ai controlled tanks are instantiated
-        tankid = color_list[i]
-        color_list.pop(tankid)
-        enemy = Player(coord_list[tankid][0], coord_list[tankid][1], ai = True, id = tankid)
-
 # determine the intersection of two lines (solve with matrices, see https://stackoverflow.com/questions/20677795/how-do-i-compute-the-intersection-point-of-two-lines)
-def line_intersection(line1, line2):
-    xdiff = (line1[0][0] - line1[1][0], line2[0][0] - line2[1][0])
-    ydiff = (line1[0][1] - line1[1][1], line2[0][1] - line2[1][1])
-
-    def det(a, b):
-        return a[0] * b[1] - a[1] * b[0]
-
-    div = det(xdiff, ydiff)
-    if div == 0:
+def intersect(line1, line2):
+    x1, y1 = line1[0][0], line1[0][1]
+    x2, y2 = line1[1][0], line1[1][1]
+    x3, y3 = line2[0][0], line2[0][1]
+    x4, y4 = line2[1][0], line2[1][1]
+    denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
+    if denom == 0: # parallel
         return False
+    ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom
+    if ua < 0 or ua > 1: # out of range
+        return False
+    ub = ((x2 - x1) * (y1-y3) - (y2 - y1) * (x1 - x3)) / denom
+    if ub < 0 or ub > 1: # out of range
+        return False
+    x = x1 + ua * (x2 - x1)
+    y = y1 + ua * (y2 - y1)
+    return (x, y)
 
-    d = (det(*line1), det(*line2))
-    x = det(d, xdiff) / div
-    y = det(d, ydiff) / div
-    return x, y
+# calculate distance between two points
+def dist(point1, point2):
+    return ((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2)**0.5
 
-# other_players = [instance for instance in Player.playerInstances if instance.id != self.id]
-#         for instance in other_players:
-#             dx = instance.pos[0] - self.pos[0] # change in x
-#             dy = instance.pos[1] - self.pos[1] # change in y
-#             scalar = recoil_scalar
-#             if self.hitbox_rect.colliderect(instance.hitbox_rect):
-#                 self.pos[0] -= dx * scalar # handles body position
-#                 self.pos[1] -= dy * scalar
-#                 instance.pos[0] += dx * scalar
-#                 instance.pos[1] += dx * scalar
-#                 self.gun.gun_pos = self.pos # update gun position to match body position
-#                 instance.gun.gun_pos = instance.pos
-#         for instance in Obstacles.obstaclesInstances: # only allows movement if not facing object
-#             off_x = instance.pos[0] - self.pos[0]
-#             off_y = instance.pos[1] - self.pos[1] 
-#             angle_to_obstacle_center = math.degrees(math.atan2(off_y, off_x))
-#             scalar = recoil_scalar
-#             if self.hitbox_rect.colliderect(instance.hitbox_rect) and self.rotation_angle < angle_to_obstacle_center + 90 and self.rotation_angle > self.rotation_angle - 90:
-#                 self.velocity = 0
-#                 self.gun.gun_pos = self.pos
-#             else:
-#                 self.pos += self.direction_vector
+# functions to find second smallest / largest number of list
+
+
+# function to evenly distribute range into coordinates
+def even_space(number = None, number2 = None, bins = None, axis = int):
+    if axis not in (0, 1):
+        raise ValueError("Axis must be either 0 (x) or 1 (y)")
+    step = number / bins # get number of coords to create
+    if axis == 0:
+        return ([(i * step, 0) for i in range(bins + 1 )], [(i * step, number2) for i in range(bins + 1)])
+    if axis == 1:
+        return ([(0, i * step) for i in range(bins + 1)], [(number2, i * step) for i in range(bins+ 1 )])
+
+    

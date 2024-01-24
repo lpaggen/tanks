@@ -42,5 +42,3 @@ dist_mult = 50
 kill_mult = 50
 health_mult = 50
 
-# collision behavior
-recoil_scalar = 0.5
