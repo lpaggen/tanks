@@ -63,6 +63,8 @@ class Player(pygame.sprite.Sprite):
         self.bottom = self.hitbox_rect.bottom
         self.right = self.hitbox_rect.right
         self.left = self.hitbox_rect.left
+        self.rays_to_players = {} # store rays to other players
+        self.visible_players = {} # keys correpond to player ids, True if visible, False if not visible
 
         Player.playerInstances.append(self) # appends instance to class list
 
@@ -160,28 +162,6 @@ class Player(pygame.sprite.Sprite):
             self.pos = (-30, self.pos[1])
             self.gun.gun_pos = self.pos
 
-    def is_hit(self):
-        for bullet in Bullet.bulletInstances:
-            if self.hitbox_rect.colliderect(bullet.hitbox_rect):
-                self.health -= player_bullet_dmg
-                self.kill()
-
-        # collides with obstacles
-        for obstacle in Obstacle.obstaclesInstances:
-            if self.hitbox_rect.colliderect(obstacle.hitbox_rect): # handle collisions
-                if self.strictly_above: # above the obstacle
-                    self.pos.y -= 1
-                    self.gun.gun_pos.y -= 1
-                if self.strictly_below: # below the obstacle
-                    self.pos.y += 1
-                    self.gun.gun_pos.y += 1
-                if self.strictly_left: # left of the obstacle
-                    self.pos.x -= 1
-                    self.gun.gun_pos.x -= 1
-                if self.strictly_right: # right of the obstacle
-                    self.pos.x += 1
-                    self.gun.gun_pos.x += 1
-        
         # collides with player
         other_players = [player for player in Player.playerInstances if player.id != self.id]
         for other in other_players:
@@ -199,31 +179,49 @@ class Player(pygame.sprite.Sprite):
                     self.pos.x += 1
                     self.gun.gun_pos = self.pos
 
-    def cast_rays(self): # handles line of sight (LOS) and TO DO: SHADOW MAPPING
+        # collides with obstacles
+        for obstacle in Obstacle.obstaclesInstances:
+            if self.hitbox_rect.colliderect(obstacle.hitbox_rect):  # handle collisions
+                # Adjust player position based on the overlap
+                if self.strictly_above: # above the obstacle
+                    print("above")
+                    self.pos.y -= 1
+                    self.gun.gun_pos.y -= 1
 
-        # calculate ray end points based on height and width of screen
-        ray_end_coords = [even_space(width, height, 30, 0)[0], # all left border ray coords
-                        even_space(height, width, 20, 1)[0], # all top border
-                        even_space(width, height, 30, 0)[1], # all right border
-                        even_space(height, width, 20, 1)[1]] # all low border
-        ray_end_coords = [coord for sublist in ray_end_coords for coord in sublist]
+                if self.strictly_below: # below the obstacle
+                    print("below")
+                    self.pos.y += 1
+                    self.gun.gun_pos.y += 1
 
-        # convert all rays to segments [a, b] in 4 sublists (need in order to use relative positions to obstacles)
-        self.ray_end_coords_segments = [[(self.pos[0], self.pos[1]), (ray_coord[0], ray_coord[1])] for ray_coord in ray_end_coords]
+                if self.strictly_left: # left of the obstacle
+                    print("left")
+                    self.pos.x -= 1
+                    self.gun.gun_pos.x -= 1
 
-        # DEBUG
-        for ray in ray_end_coords:
-            # pygame.draw.line(screen, "red", self.pos, ray, 2)
-            pass
+                if self.strictly_right: # right of the obstacle
+                    print('right')
+                    self.pos.x += 1
+                    self.gun.gun_pos.x += 1
 
-        # calculate intersections between rays and obstacles based on relative position to obstacle
-        for ray in self.ray_end_coords_segments:
-            for vertice in Obstacle.obstaclesInstancesVertices:
-                intersection = intersect(vertice, ray)
-                if intersection is not False:
-                    # pygame.draw.circle(screen, "green", intersection, 2, 5) # DEBUG
-                    intersect_coord = intersection
-                    dist_to_intersection = dist(self.pos, intersect_coord) # find smallest distance is the goal
+    def is_hit(self): # need to fix ? strange
+        for bullet in Bullet.bulletInstances:
+            if self.hitbox_rect.colliderect(bullet.hitbox_rect):
+                self.health -= player_bullet_dmg
+                self.kill()
+
+    def cast_rays(self): # cast ray to every player in the map, find if ray hits some other surface before
+        self.rays_to_players = {}
+        for player in Player.playerInstances:
+            self.visible_players[player.id] = False  # starts with all False, own visibility is always true, irr
+            if len(Player.playerInstances) > 0:
+                ray_to_player = [(self.pos[0], self.pos[1]), (player.pos[0], player.pos[1])]
+                self.rays_to_players[player.id] = ray_to_player
+                for vertice in Obstacle.obstaclesInstancesVertices:
+                    if any(intersect(vertice, ray_to_player) for ray in self.rays_to_players.values()): # check if intersect is True
+                        self.visible_players[player.id] = False
+                        break
+                    else:
+                        self.visible_players[player.id] = True
 
         # main loops for shadow mapping
         for instance in Obstacle.obstaclesInstances: # obstacles objects
@@ -398,3 +396,4 @@ class Player(pygame.sprite.Sprite):
         self.is_killed()
         self.cast_rays()
         self.is_colliding()
+
