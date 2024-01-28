@@ -2,6 +2,7 @@ import pygame
 
 # gun class (somehow need 2 separate classes for player and guns...)
 class Gun(pygame.sprite.Sprite):
+    gunInstances = []
     def __init__(self, x, y, size, idn):
         super().__init__()
         self.x = x
@@ -13,3 +14,5 @@ class Gun(pygame.sprite.Sprite):
         self.image_base = self.image
         self.hitbox_rect = self.image_base.get_rect(center = self.gun_pos)
         self.rect = self.hitbox_rect.copy()
+
+        Gun.gunInstances.append(self)
