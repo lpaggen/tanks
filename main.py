@@ -32,14 +32,15 @@ background = pygame.image.load("graphics/background.bmp").convert_alpha()
 background_surface = pygame.transform.scale(background, (width, height))
 
 player = Player(100, 100, health=100, ai = False, idn = 0) # player
-enemy0 = Player(900, 700, 100, ai = True, idn = 1) # Enemy
-enemy1 = Player(100, 600, 100, ai = True, idn = 2)
+enemy0 = Player(900, 700, health=100, ai = True, idn = 1) # Enemy
+enemy1 = Player(100, 600, health=100, ai = True, idn = 2)
 
 # enemy_test = Player(400, 400, health=100, ai = True, idn = 1) # ai instance
 
-player_group = pygame.sprite.Group()
-gun_group = pygame.sprite.Group()
-obstacle_group = pygame.sprite.Group()
+player_group = Player.player_group
+gun_group = Gun.gun_group
+obstacle_group = Obstacle.obstacle_group
+bullet_group = Bullet.bullet_group
 
 # add player to group
 player_group.add(player) # only adds the main body of the player? fix? else blit
@@ -75,6 +76,7 @@ while running:
 
     # logic for line of sight implementation based on player class and group
     # test for only controlled player LOS first
+    # TO DO -> ADD SAME FEATURE FOR ENEMY BULLETS -> probably just a matter of casting rays to them and checking intersections
     players_in_group = []
     id_in_group = []
     for tank in player_group:
@@ -97,24 +99,17 @@ while running:
             gun_group.remove(gun_to_remove)
         elif not value and key not in id_in_group: # player not visible and not in sprite group
             continue
-    print(id_in_group)
 
     screen.blit(background_surface, (0, 0))
+    bullet_group.draw(screen)
     player_group.draw(screen)
     gun_group.draw(screen)
-    bullet_group.draw(screen)
     obstacle_group.draw(screen)
     screen.blit(text_surface, text_rect)
     player.update()
     # player.raycasting()
     # enemy_test.update()
     bullet_group.update()
-
-    # debug line of sight
-
-    # debug
-    pygame.draw.rect(screen, "red", player.hitbox_rect, width=2)
-    pygame.draw.rect(screen, "yellow", player.rect, width=2)
 
     # update elements
     pygame.display.update()

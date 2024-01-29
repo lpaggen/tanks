@@ -1,10 +1,11 @@
 import pygame
 
 # obstacles class
-class Obstacle():
+class Obstacle(pygame.sprite.Sprite):
     obstaclesInstances = []
     obstaclesInstancesCorners = [] # save 4 corners of any obstacle (all rectangles) -> UNUSED ATM
     obstaclesInstancesVertices = [] # appends x, y coords of sides of obstacles
+    obstacle_group = pygame.sprite.Group()
     def __init__(self, x, y, identifier, obstacletype):
         super().__init__()
         self.x = x
@@ -12,8 +13,9 @@ class Obstacle():
         self.id = identifier
         self.type = obstacletype
         self.pos = pygame.math.Vector2(x, y)
-        self.image = pygame.transform.rotozoom(pygame.image.load("graphics/obstacles/obstacle.bmp").convert_alpha(), 0, 4)
+        self.image = pygame.transform.rotozoom(pygame.image.load("graphics/obstacles/obstacle.bmp").convert_alpha(), 0, 1.875)
         self.hitbox_rect = self.image.get_rect(center = self.pos)
+        self.rect = self.hitbox_rect.copy()
         self.tleft = self.hitbox_rect.topleft # gives xy coord of top left corner
         self.tright = self.hitbox_rect.topright
         self.bleft = self.hitbox_rect.bottomleft
@@ -28,6 +30,7 @@ class Obstacle():
         self.v_left = (self.bleft, self.tleft)
 
         Obstacle.obstaclesInstances.append(self)
+        Obstacle.obstacle_group.add(self)
 
         Obstacle.obstaclesInstancesVertices.append(self.v_top) # vertice top
         Obstacle.obstaclesInstancesVertices.append(self.v_right) # right ..

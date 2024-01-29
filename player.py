@@ -12,6 +12,7 @@ bullet_group = pygame.sprite.Group()
 # player class (also will incorporate the enemies and their AI at some stage)
 class Player(pygame.sprite.Sprite):
     playerInstances = [] # stores all Player object instances
+    player_group = pygame.sprite.Group()
     def __init__(self, x, y, name = str, health = int, kills = 0, ai = bool, idn = int): # class for tanks
         super().__init__()
         self.x = x
@@ -38,15 +39,11 @@ class Player(pygame.sprite.Sprite):
             self.bullet_size = player_bullet_size
             self.shoot_cooldown = player_shoot_cooldown
         self.image = pygame.transform.rotozoom(pygame.image.load(f"player/playersprite/tank_{self.id}_1.bmp").convert_alpha(), 0, self.size) # body of the tank
-        # self.image_1 = pygame.transform.rotozoom(pygame.image.load(f"player/playersprite/tank_{self.id}_gun.bmp").convert_alpha(), 0, self.gun_size) # gun of the tank
         self.image_base = self.image
-        # self.image_base_1 = self.image_1
         self.pos = pygame.math.Vector2(self.x, self.y)
         self.hitbox_rect = self.image_base.get_rect(center = self.pos) # handle collisions
         self.rect = self.hitbox_rect.copy() # draw player on screen
-        # self.gun_pos = pygame.math.Vector2(self.x, self.y)
-        # self.gun_hitbox_rect = self.image_base_1.get_rect(center = self.gun_pos)
-        # self.gun_rect = self.gun_hitbox_rect.copy()
+        self.mask = pygame.mask.from_surface(self.image_base)
         self.rotation_angle = 0 # starts at 0, increases with left and right
         self.velocity = 0 # moved out of move method due to failure to do as i wanted
         self.shoot_cooldown = 0
@@ -67,6 +64,7 @@ class Player(pygame.sprite.Sprite):
         self.visible_players = {} # keys correpond to player ids, True if visible, False if not visible
 
         Player.playerInstances.append(self) # appends instance to class list
+        Player.player_group.add(self)
 
     def player_rotate(self):
         self.angle = self.rotation_angle
@@ -173,29 +171,25 @@ class Player(pygame.sprite.Sprite):
         for instance in Player.playerInstances:
             if self.id != instance.id:
                 if self.hitbox_rect.colliderect(instance.hitbox_rect):
-                    if self.pre_collision_vel > 0:
-                        self.velocity = - self.velocity
-                        break
-                    elif self.pre_collision_vel < 0:
-                        self.velocity = - self.velocity
-                        break
+                    self.velocity = - self.velocity
 
         # collides with obstacles -> managed to simplify this greatly thanks to how player movement works here (vector2)
         # TO DO : MAKE MORE PRECISE 
         for instance in Obstacle.obstaclesInstances:
             if self.hitbox_rect.colliderect(instance.hitbox_rect):
                 if self.pre_collision_vel > 0:
-                    self.velocity = - self.velocity / 2
+                    self.velocity = - 0.5
                     break
                 elif self.pre_collision_vel < 0:
-                   self.velocity = - self.velocity / 2
+                   self.velocity = 0.5
                    break
 
-    def is_hit(self): # need to fix ? strange
+    def is_hit(self): # pixel perfect collisions
         for bullet in Bullet.bulletInstances:
-            if self.hitbox_rect.colliderect(bullet.hitbox_rect):
-                print("gay")
-                self.health -= player_bullet_dmg
+            collide = pygame.sprite.spritecollide(bullet, Player.player_group, False, pygame.sprite.collide_mask)
+            if not bullet.dead and collide:
+                collide[0].health -= player_bullet_dmg
+                bullet.dead = True
                 bullet.kill()
 
     def cast_rays(self): # cast ray to every player in the map, find if ray hits some other surface before

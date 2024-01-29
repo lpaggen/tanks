@@ -1,8 +1,10 @@
 import pygame
 from settings import *
 
-# power up class (to do: speed, dmg, health ...)
+# power up class (to do: speed, dmg, health ...) -> unused at the moment
 class powerUps(pygame.sprite.Sprite):
+    powerupInstances = []
+    powerup_group = pygame.sprite.Group()
     def __init__(self, x, y, identifier, name, kind, health, points):
         super().__init__()
         self.x = x
@@ -12,6 +14,8 @@ class powerUps(pygame.sprite.Sprite):
         self.health = health
         self.points = points
         self.kind = kind
+
+        powerUps.powerupInstances.append(self)
 
     def set_effect(self, player):
         if self.hitbox_rect.colliderect(player.hitbox_rect):
