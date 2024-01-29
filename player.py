@@ -110,8 +110,13 @@ class Player(pygame.sprite.Sprite):
                 self.rotation_angle -= 1.5
             if keys[pygame.K_RIGHT]:
                 self.rotation_angle += 1.5
+            
+        if self.velocity > self.max_speed:
+            self.velocity = self.max_speed
+        elif self.velocity < -self.max_speed:
+            self.velocity = -self.max_speed
 
-        if not self.ai and not any(keys): # implemented friction behavior to stop player from moving when no key is pressed
+        if not self.ai and not keys[pygame.K_DOWN] and not keys[pygame.K_UP]: # implemented friction behavior to stop player from moving when no key is pressed
             if self.velocity > 0:
                 self.velocity -= 2 * self.acceleration
             if self.velocity < 0:
@@ -148,6 +153,7 @@ class Player(pygame.sprite.Sprite):
             pass
         
     def is_colliding(self): # code is redundant but much cleaner this way
+        self.pre_collision_vel = self.velocity
         # collides with screen borders
         if self.pos[1] < -30: # cross top of screen
             self.pos = (self.pos[0], height + 20)
@@ -163,51 +169,34 @@ class Player(pygame.sprite.Sprite):
             self.gun.gun_pos = self.pos
 
         # collides with player
-        other_players = [player for player in Player.playerInstances if player.id != self.id]
-        for other in other_players:
-            if self.hitbox_rect.colliderect(other.hitbox_rect):
-                if self.top == other.bottom:
-                    self.pos.y += 1
-                    self.gun.gun_pos = self.pos
-                if self.bottom == other.top:
-                    self.pos.y -= 1
-                    self.gun.gun_pos = self.pos
-                if self.right == other.left:
-                    self.pos.x -= 1
-                    self.gun.gun_pos = self.pos
-                if self.left == other.right:
-                    self.pos.x += 1
-                    self.gun.gun_pos = self.pos
+        # TO DO : MAKE RECOIL FOR OTHER INSTANCE 
+        for instance in Player.playerInstances:
+            if self.id != instance.id:
+                if self.hitbox_rect.colliderect(instance.hitbox_rect):
+                    if self.pre_collision_vel > 0:
+                        self.velocity = - self.velocity
+                        break
+                    elif self.pre_collision_vel < 0:
+                        self.velocity = - self.velocity
+                        break
 
-        # collides with obstacles
-        for obstacle in Obstacle.obstaclesInstances:
-            if self.hitbox_rect.colliderect(obstacle.hitbox_rect):  # handle collisions
-                # Adjust player position based on the overlap
-                if self.strictly_above: # above the obstacle
-                    print("above")
-                    self.pos.y -= 1
-                    self.gun.gun_pos.y -= 1
-
-                if self.strictly_below: # below the obstacle
-                    print("below")
-                    self.pos.y += 1
-                    self.gun.gun_pos.y += 1
-
-                if self.strictly_left: # left of the obstacle
-                    print("left")
-                    self.pos.x -= 1
-                    self.gun.gun_pos.x -= 1
-
-                if self.strictly_right: # right of the obstacle
-                    print('right')
-                    self.pos.x += 1
-                    self.gun.gun_pos.x += 1
+        # collides with obstacles -> managed to simplify this greatly thanks to how player movement works here (vector2)
+        # TO DO : MAKE MORE PRECISE 
+        for instance in Obstacle.obstaclesInstances:
+            if self.hitbox_rect.colliderect(instance.hitbox_rect):
+                if self.pre_collision_vel > 0:
+                    self.velocity = - self.velocity / 2
+                    break
+                elif self.pre_collision_vel < 0:
+                   self.velocity = - self.velocity / 2
+                   break
 
     def is_hit(self): # need to fix ? strange
         for bullet in Bullet.bulletInstances:
             if self.hitbox_rect.colliderect(bullet.hitbox_rect):
+                print("gay")
                 self.health -= player_bullet_dmg
-                self.kill()
+                bullet.kill()
 
     def cast_rays(self): # cast ray to every player in the map, find if ray hits some other surface before
         self.rays_to_players = {}
@@ -223,6 +212,7 @@ class Player(pygame.sprite.Sprite):
                     else:
                         self.visible_players[player.id] = True
 
+    def shadow_mapping(self):
         # main loops for shadow mapping
         for instance in Obstacle.obstaclesInstances: # obstacles objects
             self.closest_angles_coords = {}
@@ -276,22 +266,22 @@ class Player(pygame.sprite.Sprite):
             # 2 can be true at most, above and right/left etc etc
             # !!! order -> 0, 1, 2, 3 = tleft, tright, bleft, bright
             # self.stricly whatever is used in collisions as well
-            if self.pos[1] <= top: # above the obstacle
+            if self.pos[1] <= top and self.pos[0] < right and self.pos[0] > left: # above the obstacle
                 self.strictly_above = True # strictly as in i see 2 corners not 3
                 self.how_many_visible_angles[0] = tleft
                 self.how_many_visible_angles[1] = tright
                 # pygame.draw.polygon(screen, "red", [self.pos, tleft, tright])
-            if self.pos[1] >= bottom: # below the obstacle
+            if self.pos[1] >= bottom and self.pos[0] < right and self.pos[0] > left: # below the obstacle
                 self.strictly_below = True
                 self.how_many_visible_angles[2] = bleft
                 self.how_many_visible_angles[3] = bright
                 # pygame.draw.polygon(screen, "red", [self.pos, bleft, bright])
-            if self.pos[0] <= left: # left of the obstacle
+            if self.pos[0] <= left and self.pos[1] < bottom and self.pos[1] > top: # left of the obstacle
                 self.strictly_left = True
                 self.how_many_visible_angles[0] = tleft
                 self.how_many_visible_angles[2] = bleft
                 # pygame.draw.polygon(screen, "red", [self.pos, tleft, bleft])
-            if self.pos[0] >= right: # right of the obstacle
+            if self.pos[0] >= right and self.pos[1] < bottom and self.pos[1] > top: # right of the obstacle
                 self.strictly_right = True
                 self.how_many_visible_angles[1] = tright
                 self.how_many_visible_angles[3] = bright
@@ -352,9 +342,6 @@ class Player(pygame.sprite.Sprite):
             # print("resulting coords", self.closest_angles_coords)
             # print("#################################################")
 
-    def draw_line_of_sight(self):
-        pass
-
     def ai_incentive(self): # attributes a "score" to determine the best move for ai tanks
         self.best_move_eval = {}
         for instance in Player.playerInstances:
@@ -396,4 +383,5 @@ class Player(pygame.sprite.Sprite):
         self.is_killed()
         self.cast_rays()
         self.is_colliding()
+        self.is_hit()
 
