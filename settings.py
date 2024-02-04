@@ -1,6 +1,6 @@
 # game settings
-width = 1200
-height = 800
+width = 1800
+height = 1000
 fps = 60
 
 # tank spawn coords - make modular...
@@ -14,6 +14,7 @@ player_size = 1.2
 player_gun_size = 1.4
 player_max_speed = 1
 player_acceleration = 0.01
+player_max_health = 100
 
 # bullet settings
 player_bullet_velocity = 5
@@ -42,3 +43,10 @@ dist_mult = 50
 kill_mult = 50
 health_mult = 50
 
+# powerup cooldowns
+health_increase = 25
+vel_increase = 1.5
+shoot_cooldown_decrease = 45
+
+# editor settings
+tile_size = 40
