@@ -42,14 +42,6 @@ gun_group = Gun.gun_group
 obstacle_group = Obstacle.obstacle_group
 bullet_group = Bullet.bullet_group
 
-# add player to group
-player_group.add(player) # only adds the main body of the player? fix? else blit
-gun_group.add(player.gun)
-gun_group.add(enemy0.gun)
-player_group.add(enemy0)
-player_group.add(enemy1)
-gun_group.add(enemy1.gun)
-
 # title and icon
 pygame.display.set_caption("tanks -- beta")
 icon = pygame.image.load("tank1.bmp")
@@ -106,7 +98,7 @@ while running:
     gun_group.draw(screen)
     obstacle_group.draw(screen)
     screen.blit(text_surface, text_rect)
-    player.update()
+    player_group.update()
     # player.raycasting()
     # enemy_test.update()
     bullet_group.update()

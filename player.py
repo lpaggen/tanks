@@ -5,9 +5,7 @@ import math
 from gun import Gun
 from bullet import Bullet
 from obstacle import Obstacle
-
-# bullet group needs to be defined here, will fix later
-bullet_group = pygame.sprite.Group()
+from powerup import powerUps
 
 # player class (also will incorporate the enemies and their AI at some stage)
 class Player(pygame.sprite.Sprite):
@@ -66,6 +64,14 @@ class Player(pygame.sprite.Sprite):
         Player.playerInstances.append(self) # appends instance to class list
         Player.player_group.add(self)
 
+    def test(self):
+        if self.id == 0:
+            print("lol")
+
+    def am_i_ai(self):
+        if self.ai:
+            print("yes i am ai")
+
     def player_rotate(self):
         self.angle = self.rotation_angle
         self.image = pygame.transform.rotate(self.image_base, -self.angle) # negative angle for correct direction
@@ -80,9 +86,9 @@ class Player(pygame.sprite.Sprite):
             self.gun.image = pygame.transform.rotate(self.gun.image_base, -self.gun_angle)
             self.gun.rect = self.gun.image.get_rect(center = self.gun.hitbox_rect.center)
         else: # implement some form of AI to aim at other tanks!
-            for playerinstance in Player.playerInstances: # check all class instances
-                if playerinstance.id != self.id: # checks if instance is not self
-                    self.aim_coords = playerinstance.pos
+            for instance in Player.playerInstances: # check all class instances
+                if instance.id != self.id: # checks if instance is not self
+                    self.aim_coords = instance.pos
                     self.delta_change_x = (self.aim_coords[0] - self.gun.hitbox_rect.centerx)
                     self.delta_change_y = (self.aim_coords[1] - self.gun.hitbox_rect.centerx)
                     self.gun_angle = math.degrees(math.atan2(self.delta_change_y, self.delta_change_x))
@@ -127,7 +133,6 @@ class Player(pygame.sprite.Sprite):
             self.x_offset = (50 * math.cos(self.gun_angle_rad)) # ~ gun length (40) + tolerance
             self.y_offset = (50 * math.sin(self.gun_angle_rad))
             self.bullet = Bullet(self.gun.rect.centerx + self.x_offset, self.gun.rect.centery + self.y_offset, self.gun_angle)
-            bullet_group.add(self.bullet)
             self.is_shooting()
 
     def reset_rotation_angle(self):
@@ -156,13 +161,13 @@ class Player(pygame.sprite.Sprite):
         if self.pos[1] < -30: # cross top of screen
             self.pos = (self.pos[0], height + 20)
             self.gun.gun_pos = self.pos
-        if self.pos[1] > height + 30: # cross bottom of screen
+        elif self.pos[1] > height + 30: # cross bottom of screen
             self.pos = (self.pos[0], -30)
             self.gun.gun_pos = self.pos
-        if self.pos[0] < -30: # cross left of screen
+        elif self.pos[0] < -30: # cross left of screen
             self.pos = (width + 30, self.pos[1])
             self.gun.gun_pos = self.pos
-        if self.pos[0] > width + 30: # cross left of screen
+        elif self.pos[0] > width + 30: # cross left of screen
             self.pos = (-30, self.pos[1])
             self.gun.gun_pos = self.pos
 
@@ -192,6 +197,10 @@ class Player(pygame.sprite.Sprite):
                 bullet.dead = True
                 bullet.kill()
 
+    def pick_up_item(self):
+        for item in powerUps.powerupInstances:
+            item.set_effect(self)
+
     def cast_rays(self): # cast ray to every player in the map, find if ray hits some other surface before
         self.rays_to_players = {}
         for player in Player.playerInstances:
@@ -206,7 +215,7 @@ class Player(pygame.sprite.Sprite):
                     else:
                         self.visible_players[player.id] = True
 
-    def shadow_mapping(self):
+    def shadow_mapping(self): # this method aims at casting rays to obstacle corners, making transparent shadows based on player pos
         # main loops for shadow mapping
         for instance in Obstacle.obstaclesInstances: # obstacles objects
             self.closest_angles_coords = {}
@@ -378,4 +387,4 @@ class Player(pygame.sprite.Sprite):
         self.cast_rays()
         self.is_colliding()
         self.is_hit()
-
+        self.pick_up_item()

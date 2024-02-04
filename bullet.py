@@ -31,15 +31,17 @@ class Bullet(pygame.sprite.Sprite): # should update to differentiate between pla
         self.hitbox_rect.center = self.pos
         self.rect.center = self.pos
 
-    def bullet_collide(self):
+    def bullet_collide(self): # small bug to fix when hitting an obstacle
         other_bullets = [instance for instance in Bullet.bulletInstances if instance.pos != self.pos and not instance.dead] # all bullets except self
         for instance in other_bullets:
-            if self.hitbox_rect.colliderect(instance.hitbox_rect): # checks coll with bullets
+            if not instance.dead and self.hitbox_rect.colliderect(instance.hitbox_rect): # checks coll with bullets
+                self.dead = True
                 self.kill()
                 instance.kill()
 
         for obstacle in Obstacle.obstaclesInstances:
-            if self.hitbox_rect.colliderect(obstacle.hitbox_rect):
+            if not self.dead and self.hitbox_rect.colliderect(obstacle.hitbox_rect):
+                self.dead
                 self.kill()
 
     def update(self):
